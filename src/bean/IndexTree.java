@@ -1,3 +1,10 @@
+package bean;
+
+import bean.Index;
+import bean.IndexKey;
+import bean.IndexNode;
+import bean.Relationship;
+
 import java.io.File;
 import java.io.Serializable;
 import java.util.*;
@@ -29,7 +36,7 @@ public class IndexTree implements Serializable {
                         indexNodeList.add(node);
                     }
                 }
-                /*for (IndexNode node : indexNodeMap.values()) {
+                /*for (bean.IndexNode node : indexNodeMap.values()) {
                     indexNodeList.add(node);
                 }*/
                 break;

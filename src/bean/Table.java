@@ -1,3 +1,5 @@
+package bean;
+
 import java.io.*;
 import java.util.*;
 
@@ -208,7 +210,7 @@ public class Table {
                 FileWriter fw = new FileWriter(dictFile, append);
                 PrintWriter pw = new PrintWriter(fw)
         ) {
-            //for (Map.Entry<String, Field> fieldEntry : fields.entrySet()) {
+            //for (Map.Entry<String, bean.Field> fieldEntry : fields.entrySet()) {
             for (Field field : fields.values()) {
                 String name = field.getName();
                 String type = field.getType();

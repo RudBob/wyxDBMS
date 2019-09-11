@@ -1,6 +1,6 @@
+package bean;
+
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
 
 public class IndexKey implements Comparable, Serializable {
     private String value;

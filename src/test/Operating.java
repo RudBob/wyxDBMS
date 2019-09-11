@@ -1,3 +1,9 @@
+package test;
+
+import bean.*;
+import exception.LoginFailException;
+import util.StringUtil;
+
 import java.io.*;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -16,26 +22,13 @@ public class Operating {
     private static final Pattern PATTERN_REVOKE_ADMIN = Pattern.compile("revoke\\sadmin\\sfrom\\s([^;\\s]+)\\s?;");
 
 
-    public void dbms() {
-        //User user = new User("user1", "abc");
-        User user = User.getUser("user1", "abc");
-        if (null == user) {
-            System.out.println("已退出dbms");
-            return;
-        } else {
-            System.out.println(user.getName() + "登陆成功!");
-        }
-        //User.grant(user.getName(), User.READ_ONLY);
-        //user.grant(User.READ_ONLY);
-
-        //默认进入user1用户文件夹
-        File userFolder = new File("dir", user.getName());
-
-        //默认进入user1的默认数据库db1
-        File dbFolder = new File(userFolder, "db1");
-
-
-        Table.init(user.getName(), dbFolder.getName());
+    public void dbms() throws LoginFailException {
+        //bean.User user = new bean.User("user1", "abc");
+        User user = login();
+        //bean.User.grant(user.getName(), bean.User.READ_ONLY);
+        //user.grant(bean.User.READ_ONLY);
+        // 进入默认的表中
+        intoDefaultTable(user);
 
 
         Scanner sc = new Scanner(System.in);
@@ -143,6 +136,28 @@ public class Operating {
             }
         }
 
+    }
+
+    private void intoDefaultTable(User user) {
+        //默认进入user1用户文件夹
+        File userFolder = new File("dir", user.getName());
+
+        //默认进入user1的默认数据库db1
+        File dbFolder = new File(userFolder, "db1");
+
+
+        Table.init(user.getName(), dbFolder.getName());
+    }
+
+    private User login() throws LoginFailException {
+        User user = User.getUser("user1", "abc");
+        if (null == user) {
+            System.out.println("已退出dbms");
+            throw new LoginFailException();
+        } else {
+            System.out.println(user.getName() + "登陆成功!");
+        }
+        return user;
     }
 
     private void deleteIndex(Matcher matcherDeleteIndex) {

@@ -1,3 +1,5 @@
+package bean;
+
 import java.io.*;
 
 public class User implements Serializable {

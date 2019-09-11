@@ -1,3 +1,5 @@
+package bean;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -128,7 +130,7 @@ public enum Relationship {
      * @param joinCondition 连接关系
      * @return
      */
-    public static boolean matchJionCondition(Map<String, String> data1,Map<String, String> data2,JoinCondition joinCondition) {
+    public static boolean matchJionCondition(Map<String, String> data1, Map<String, String> data2, JoinCondition joinCondition) {
         String tableName1 = joinCondition.getTableName1();
         String tableName2 = joinCondition.getTableName2();
 

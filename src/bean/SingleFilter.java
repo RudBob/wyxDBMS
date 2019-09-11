@@ -1,5 +1,8 @@
+package bean;
+
+import bean.Field;
+
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -19,7 +22,7 @@ public class SingleFilter {
      * @return 过滤后的数据
      */
     public List<Map<String, String>> singleFiltData(List<Map<String, String>> srcDatas) {
-        // Field field, Relationship relationship, String condition
+        // bean.Field field, bean.Relationship relationship, String condition
         Relationship relationship = Relationship.parseRel(relationshipName);
         List<Map<String, String>> datas = new ArrayList<>();
         //如果没有限定条件，返回原始列表
