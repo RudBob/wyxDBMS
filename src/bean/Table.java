@@ -642,11 +642,7 @@ public class Table {
                 ObjectInputStream ois = new ObjectInputStream(fis)
         ) {
             indexMap = (Map<String, IndexTree>) ois.readObject();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
+        } catch (ClassNotFoundException | IOException e) {
             e.printStackTrace();
         }
     }
