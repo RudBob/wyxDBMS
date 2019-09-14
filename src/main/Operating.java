@@ -1,4 +1,4 @@
-package test;
+package main;
 
 import action.DataAction;
 import action.TableAction;
@@ -14,8 +14,8 @@ import java.util.regex.Pattern;
  * 匹配各个操作
  */
 public class Operating {
-    DataAction dataAction = new DataAction();
-    TableAction tableAction = new TableAction();
+    private DataAction dataAction = new DataAction();
+    private TableAction tableAction = new TableAction();
     private static final Pattern PATTERN_INSERT = Pattern.compile("insert\\s+into\\s+(\\w+)(\\(((\\w+,?)+)\\))?\\s+\\w+\\((([^\\)]+,?)+)\\);?");
     private static final Pattern PATTERN_CREATE_TABLE = Pattern.compile("create\\stable\\s(\\w+)\\s?\\(((?:\\s?\\w+\\s\\w+,?)+)\\)\\s?;");
     private static final Pattern PATTERN_ALTER_TABLE_ADD = Pattern.compile("alter\\stable\\s(\\w+)\\sadd\\s(\\w+\\s\\w+)\\s?;");
@@ -27,9 +27,12 @@ public class Operating {
     private static final Pattern PATTERN_GRANT_ADMIN = Pattern.compile("grant\\sadmin\\sto\\s([^;\\s]+)\\s?;");
     private static final Pattern PATTERN_REVOKE_ADMIN = Pattern.compile("revoke\\sadmin\\sfrom\\s([^;\\s]+)\\s?;");
 
-    UserAction userAction = new UserAction();
+    private UserAction userAction = new UserAction();
 
-    void dbms() {
+    /**
+     * 程序的入口.
+     */
+    public void dbms() {
         //bean.User user = new bean.User("user1", "abc");
         User user = null;
         try {
@@ -49,6 +52,11 @@ public class Operating {
 
     }
 
+    /**
+     * 处理用户输入的命令。
+     *
+     * @param user 用户信息，判断用户是否有权限进行部分操作。
+     */
     private void dealCommend(User user) {
         Scanner sc = new Scanner(System.in);
         String cmd;
@@ -58,6 +66,12 @@ public class Operating {
         }
     }
 
+    /**
+     * 挨个匹配常见命令，因为要判断用户的权限，而且应该保留操作日志.
+     *
+     * @param user 用户信息
+     * @param cmd  用户输入的命令。
+     */
     private void matchCommend(User user, String cmd) {
         matchGrantAdmin(user, cmd);
 
@@ -82,6 +96,7 @@ public class Operating {
 
     private void matcherDeleteIndex(User user, String cmd) {
         Matcher matcherDeleteIndex = PATTERN_DELETE_INDEX.matcher(cmd);
+        // 为啥要使用while？ 而不用if?
         while (matcherDeleteIndex.find()) {
             if (user.getLevel() != User.ADMIN) {
                 System.out.println("用户" + user.getName() + "权限不够，无法完成此操作！");
