@@ -496,10 +496,10 @@ public class Table {
     }
 
 
-
     /**
      * 读取对应索引文件的数据并过滤
-     *@param singleFilters 过滤器
+     *
+     * @param singleFilters 过滤器
      * @return
      */
     public List<Map<String, String>> read(List<SingleFilter> singleFilters) {
@@ -517,7 +517,6 @@ public class Table {
 
         return datas;
     }
-
 
 
     /**
@@ -709,7 +708,7 @@ public class Table {
         }
 
         //重新填充dataFileSet
-        if (null != dataFiles && 0 != dataFiles.length) {
+        if (0 != dataFiles.length) {
             for (int i = 1; i <= dataFiles.length; i++) {
                 File dataFile = new File(folder + "/data", i + ".data");
                 dataFileSet.add(dataFile);

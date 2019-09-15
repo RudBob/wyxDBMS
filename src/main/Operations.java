@@ -8,32 +8,22 @@ import exception.LoginFailException;
 
 import java.util.*;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
+import util.PatternModelStr;
 
 /**
  * 匹配各个操作
  */
-public class Operating {
+public class Operations {
     private DataAction dataAction = new DataAction();
     private TableAction tableAction = new TableAction();
-    private static final Pattern PATTERN_INSERT = Pattern.compile("insert\\s+into\\s+(\\w+)(\\(((\\w+,?)+)\\))?\\s+\\w+\\((([^\\)]+,?)+)\\);?");
-    private static final Pattern PATTERN_CREATE_TABLE = Pattern.compile("create\\stable\\s(\\w+)\\s?\\(((?:\\s?\\w+\\s\\w+,?)+)\\)\\s?;");
-    private static final Pattern PATTERN_ALTER_TABLE_ADD = Pattern.compile("alter\\stable\\s(\\w+)\\sadd\\s(\\w+\\s\\w+)\\s?;");
-    private static final Pattern PATTERN_DELETE = Pattern.compile("delete\\sfrom\\s(\\w+)(?:\\swhere\\s(\\w+\\s?[<=>]\\s?[^\\s\\;]+(?:\\sand\\s(?:\\w+)\\s?(?:[<=>])\\s?(?:[^\\s\\;]+))*))?\\s?;");
-    private static final Pattern PATTERN_UPDATE = Pattern.compile("update\\s(\\w+)\\sset\\s(\\w+\\s?=\\s?[^,\\s]+(?:\\s?,\\s?\\w+\\s?=\\s?[^,\\s]+)*)(?:\\swhere\\s(\\w+\\s?[<=>]\\s?[^\\s\\;]+(?:\\sand\\s(?:\\w+)\\s?(?:[<=>])\\s?(?:[^\\s\\;]+))*))?\\s?;");
-    private static final Pattern PATTERN_DROP_TABLE = Pattern.compile("drop\\stable\\s(\\w+);");
-    private static final Pattern PATTERN_SELECT = Pattern.compile("select\\s(\\*|(?:(?:\\w+(?:\\.\\w+)?)+(?:\\s?,\\s?\\w+(?:\\.\\w+)?)*))\\sfrom\\s(\\w+(?:\\s?,\\s?\\w+)*)(?:\\swhere\\s([^\\;]+\\s?;))?");
-    private static final Pattern PATTERN_DELETE_INDEX = Pattern.compile("delete\\sindex\\s(\\w+)\\s?;");
-    private static final Pattern PATTERN_GRANT_ADMIN = Pattern.compile("grant\\sadmin\\sto\\s([^;\\s]+)\\s?;");
-    private static final Pattern PATTERN_REVOKE_ADMIN = Pattern.compile("revoke\\sadmin\\sfrom\\s([^;\\s]+)\\s?;");
-
     private UserAction userAction = new UserAction();
 
     /**
      * 程序的入口.
      */
     public void dbms() {
-        //bean.User user = new bean.User("user1", "abc");
+        //User user = new bean.User("user1", "abc");
         User user = null;
         try {
             user = userAction.login();
@@ -73,6 +63,8 @@ public class Operating {
      * @param cmd  用户输入的命令。
      */
     private void matchCommend(User user, String cmd) {
+        // 因为存在嵌套子句，所以每一种可能性都要进行匹配
+        // 例: update table1 set name = 'zhangsan' where select name from table where name = 'lisi';
         matchGrantAdmin(user, cmd);
 
         matcherRevokeAdmin(user, cmd);
@@ -95,8 +87,8 @@ public class Operating {
     }
 
     private void matcherDeleteIndex(User user, String cmd) {
-        Matcher matcherDeleteIndex = PATTERN_DELETE_INDEX.matcher(cmd);
-        // 为啥要使用while？ 而不用if?
+        Matcher matcherDeleteIndex = PatternModelStr.PATTERN_DELETE_INDEX.matcher(cmd);
+        // 因为可能是嵌套子句，所以要多次匹配.
         while (matcherDeleteIndex.find()) {
             if (user.getLevel() != User.ADMIN) {
                 System.out.println("用户" + user.getName() + "权限不够，无法完成此操作！");
@@ -107,14 +99,14 @@ public class Operating {
     }
 
     private void matcherSelect(String cmd) {
-        Matcher matcherSelect = PATTERN_SELECT.matcher(cmd);
+        Matcher matcherSelect = PatternModelStr.PATTERN_SELECT.matcher(cmd);
         while (matcherSelect.find()) {
             dataAction.select(matcherSelect);
         }
     }
 
     private void matcherDropTable(User user, String cmd) {
-        Matcher matcherDropTable = PATTERN_DROP_TABLE.matcher(cmd);
+        Matcher matcherDropTable = PatternModelStr.PATTERN_DROP_TABLE.matcher(cmd);
         while (matcherDropTable.find()) {
             if (user.getLevel() != User.ADMIN) {
                 System.out.println("用户" + user.getName() + "权限不够，无法完成此操作！");
@@ -125,7 +117,7 @@ public class Operating {
     }
 
     private void matcherUpdate(User user, String cmd) {
-        Matcher matcherUpdate = PATTERN_UPDATE.matcher(cmd);
+        Matcher matcherUpdate = PatternModelStr.PATTERN_UPDATE.matcher(cmd);
         while (matcherUpdate.find()) {
             if (user.getLevel() != User.ADMIN) {
                 System.out.println("用户" + user.getName() + "权限不够，无法完成此操作！");
@@ -136,7 +128,7 @@ public class Operating {
     }
 
     private void matcherDelete(User user, String cmd) {
-        Matcher matcherDelete = PATTERN_DELETE.matcher(cmd);
+        Matcher matcherDelete = PatternModelStr.PATTERN_DELETE.matcher(cmd);
         while (matcherDelete.find()) {
             if (user.getLevel() != User.ADMIN) {
                 System.out.println("用户" + user.getName() + "权限不够，无法完成此操作！");
@@ -147,7 +139,7 @@ public class Operating {
     }
 
     private void matcherAlterTable_add(User user, String cmd) {
-        Matcher matcherAlterTable_add = PATTERN_ALTER_TABLE_ADD.matcher(cmd);
+        Matcher matcherAlterTable_add = PatternModelStr.PATTERN_ALTER_TABLE_ADD.matcher(cmd);
         while (matcherAlterTable_add.find()) {
             if (user.getLevel() != User.ADMIN) {
                 System.out.println("用户" + user.getName() + "权限不够，无法完成此操作！");
@@ -158,7 +150,7 @@ public class Operating {
     }
 
     private void matcherCreateTable(User user, String cmd) {
-        Matcher matcherCreateTable = PATTERN_CREATE_TABLE.matcher(cmd);
+        Matcher matcherCreateTable = PatternModelStr.PATTERN_CREATE_TABLE.matcher(cmd);
         while (matcherCreateTable.find()) {
             if (user.getLevel() != User.ADMIN) {
                 System.out.println("用户" + user.getName() + "权限不够，无法完成此操作！");
@@ -169,7 +161,7 @@ public class Operating {
     }
 
     private void matcherInsert(User user, String cmd) {
-        Matcher matcherInsert = PATTERN_INSERT.matcher(cmd);
+        Matcher matcherInsert = PatternModelStr.PATTERN_INSERT.matcher(cmd);
         while (matcherInsert.find()) {
             if (user.getLevel() != User.ADMIN) {
                 System.out.println("用户" + user.getName() + "权限不够，无法完成此操作！");
@@ -180,7 +172,7 @@ public class Operating {
     }
 
     private void matcherRevokeAdmin(User user, String cmd) {
-        Matcher matcherRevokeAdmin = PATTERN_REVOKE_ADMIN.matcher(cmd);
+        Matcher matcherRevokeAdmin = PatternModelStr.PATTERN_REVOKE_ADMIN.matcher(cmd);
         while (matcherRevokeAdmin.find()) {
             User revokeUser = User.getUser(matcherRevokeAdmin.group(1));
             if (null == revokeUser) {
@@ -198,7 +190,7 @@ public class Operating {
     }
 
     private void matchGrantAdmin(User user, String cmd) {
-        Matcher matcherGrantAdmin = PATTERN_GRANT_ADMIN.matcher(cmd);
+        Matcher matcherGrantAdmin = PatternModelStr.PATTERN_GRANT_ADMIN.matcher(cmd);
         while (matcherGrantAdmin.find()) {
             User grantUser = User.getUser(matcherGrantAdmin.group(1));
             if (null == grantUser) {

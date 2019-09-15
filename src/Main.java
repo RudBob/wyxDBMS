@@ -1,4 +1,4 @@
-import main.Operating;
+import main.Operations;
 
 /**
  * @ClassName Main
@@ -12,7 +12,7 @@ public class Main {
      * 程序的启动入口
      */
     public static void main(String[] args) {
-        Operating operating = new Operating();
+        Operations operating = new Operations();
         operating.dbms();
     }
 }
