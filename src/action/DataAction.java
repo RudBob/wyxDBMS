@@ -2,7 +2,6 @@ package action;
 
 import bean.*;
 import util.MatherUtil;
-import util.PatternModelStr;
 import util.PrintUtil;
 import util.StringUtil;
 
@@ -157,10 +156,10 @@ public class DataAction {
 
         for (Map<String, String> line : resultDatas) {
             Iterator<String> valueIter = line.values().iterator();
-            for (int i = 0; i < nameLens.length; i++) {
+            for (int nameLen : nameLens) {
                 String next = valueIter.next();
                 System.out.print("|" + next);
-                for (int j = 0; j < nameLens[i] - next.length(); j++) {
+                for (int j = 0; j < nameLen - next.length(); j++) {
                     System.out.print(" ");
                 }
             }
@@ -252,9 +251,9 @@ public class DataAction {
      *
      * @param whereStr      where子句
      * @param table         目标表
-     * @param fieldMap
-     * @param data
-     * @param singleFilters
+     * @param fieldMap      文件映射
+     * @param data          数据集
+     * @param singleFilters 过滤器
      */
     private void updateDataByWhere(String whereStr, Table table, Map<String, Field> fieldMap, Map<String, String> data, List<SingleFilter> singleFilters) {
         List<Map<String, String>> filtList = StringUtil.parseWhere(whereStr);
@@ -293,8 +292,8 @@ public class DataAction {
      *
      * @param whereStr      条件子句
      * @param table         目标表
-     * @param fieldMap
-     * @param singleFilters
+     * @param fieldMap      文件映射
+     * @param singleFilters 过滤器
      */
     private void deleteByWhere(String whereStr, Table table, Map<String, Field> fieldMap, List<SingleFilter> singleFilters) {
         List<Map<String, String>> filtList = StringUtil.parseWhere(whereStr);
