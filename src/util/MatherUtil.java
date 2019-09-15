@@ -13,4 +13,16 @@ public class MatherUtil {
     public static String getTableName(Matcher matcherAlterTable_add) {
         return matcherAlterTable_add.group(1);
     }
+
+    public static String getWhereStr(Matcher matcherSelect) {
+        return matcherSelect.group(3);
+    }
+
+    public static String getWhereStrDelete(Matcher matcherSelect) {
+        return matcherSelect.group(2);
+    }
+
+    public static String getSetStr(Matcher matcherUpdate) {
+        return matcherUpdate.group(2);
+    }
 }

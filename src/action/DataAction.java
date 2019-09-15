@@ -2,6 +2,7 @@ package action;
 
 import bean.*;
 import util.MatherUtil;
+import util.PatternModelStr;
 import util.PrintUtil;
 import util.StringUtil;
 
@@ -11,13 +12,17 @@ import java.util.regex.Matcher;
 
 /**
  * @ClassName DataAction
- * @Description TODO
+ * @Description 对表中数据进行操作的类
  * @Author 任耀
  * @Date 2019/9/14 21:24
  * @Version 1.0
  */
 public class DataAction {
-
+    /**
+     * 用户的select操作
+     *
+     * @param matcherSelect 已经匹配上select子句的模式
+     */
     public void select(Matcher matcherSelect) {
         // 将读到的所有数据放到tableDatasMap中
         Map<String, List<Map<String, String>>> tableDatasMap = new LinkedHashMap<>();
@@ -25,29 +30,24 @@ public class DataAction {
         // 将投影放在Map<String,List<String>> projectionMap中
         Map<String, List<String>> projectionMap = new LinkedHashMap<>();
 
-        // 得到表名
-        List<String> tableNames = StringUtil.parseFrom(matcherSelect.group(2));
-
         // where 子句的条件
-        String whereStr = matcherSelect.group(3);
+        String whereStr = MatherUtil.getWhereStr(matcherSelect);
 
         //将tableName和table.fieldMap放入
-        Map<String, Map<String, Field>> fieldMaps = new HashMap<>();
+        Map<String, Map<String, Field>> fieldMaps = new HashMap<>(16);
 
-        if (getTablesDatas(matcherSelect, tableDatasMap, projectionMap, tableNames, whereStr, fieldMaps)) {
+        if (getTablesDatas(matcherSelect, tableDatasMap, projectionMap, whereStr, fieldMaps)) {
             return;
         }
 
 
-        //解析连接条件，并创建连接对象jion
+        //解析连接条件，并创建连接对象 join
         List<Map<String, String>> joinConditionMapList = StringUtil.parseWhere_join(whereStr, fieldMaps);
         List<JoinCondition> joinConditionList = new LinkedList<>();
 
         for (Map<String, String> joinMap : joinConditionMapList) {
             joinTableWithField(projectionMap, fieldMaps, joinConditionList, joinMap);
         }
-        List<Map<String, String>> resultDatas = Join.joinData(tableDatasMap, joinConditionList, projectionMap);
-        //System.out.println(resultDatas);
 
         //将需要显示的字段名按table.filed的型式存入dataNameList
         List<String> dataNameList = new LinkedList<>();
@@ -59,12 +59,15 @@ public class DataAction {
             }
 
         }
+        List<Map<String, String>> resultData = Join.joinData(tableDatasMap, joinConditionList, projectionMap);
 
-        showResult(resultDatas, dataNameList);
+        showResult(resultData, dataNameList);
 
     }
 
-    private boolean getTablesDatas(Matcher matcherSelect, Map<String, List<Map<String, String>>> tableDatasMap, Map<String, List<String>> projectionMap, List<String> tableNames, String whereStr, Map<String, Map<String, Field>> fieldMaps) {
+
+    private boolean getTablesDatas(Matcher matcherSelect, Map<String, List<Map<String, String>>> tableDatasMap, Map<String, List<String>> projectionMap, String whereStr, Map<String, Map<String, Field>> fieldMaps) {
+        List<String> tableNames = StringUtil.parseFrom(matcherSelect.group(2));
         for (String tableName : tableNames) {
             Table table = Table.getTable(tableName);
             if (null == table) {
@@ -165,7 +168,11 @@ public class DataAction {
         }
     }
 
-    // insert
+    /**
+     * insert数据
+     *
+     * @param matcherInsert 匹配insert语句
+     */
     public void insert(Matcher matcherInsert) {
         String tableName = MatherUtil.getTableName(matcherInsert);
         Table table = Table.getTable(tableName);
@@ -173,21 +180,23 @@ public class DataAction {
             PrintUtil.printTableNotFound(tableName);
             return;
         }
-        Map dictMap = table.getFieldMap();
+        Map<String, Field> dictMap = table.getFieldMap();
         Map<String, String> data = new HashMap<>();
 
         String[] fieldValues = matcherInsert.group(5).trim().split(",");
         // 如果插入指定的字段
         if (null != matcherInsert.group(2)) {
-            if (insertSomeParams(matcherInsert, dictMap, data, fieldValues)) return;
+            if (insertSomeParams(matcherInsert, dictMap, data, fieldValues)) {
+                return;
+            }
         } else {//否则插入全部字段
             insertAllData(dictMap, data, fieldValues);
         }
         table.insert(data);
     }
 
-    private boolean insertSomeParams(Matcher matcherInsert, Map dictMap, Map<String, String> data, String[] fieldValues) {
-        String[] fieldNames = matcherInsert.group(3).trim().split(",");
+    private boolean insertSomeParams(Matcher matcherInsert, Map<String, Field> dictMap, Map<String, String> data, String[] fieldValues) {
+        String[] fieldNames = MatherUtil.getWhereStr(matcherInsert).trim().split(",");
         //如果insert的名值数量不相等，错误
         if (fieldNames.length != fieldValues.length) {
             return true;
@@ -204,7 +213,7 @@ public class DataAction {
         return false;
     }
 
-    private void insertAllData(Map dictMap, Map<String, String> data, String[] fieldValues) {
+    private void insertAllData(Map<String, Field> dictMap, Map<String, String> data, String[] fieldValues) {
         Set<String> fieldNames = dictMap.keySet();
         int i = 0;
         for (String fieldName : fieldNames) {
@@ -217,8 +226,8 @@ public class DataAction {
     // update
     public void update(Matcher matcherUpdate) {
         String tableName = MatherUtil.getTableName(matcherUpdate);
-        String setStr = matcherUpdate.group(2);
-        String whereStr = matcherUpdate.group(3);
+        String setStr = MatherUtil.getSetStr(matcherUpdate);
+        String whereStr = MatherUtil.getWhereStr(matcherUpdate);
 
         Table table = Table.getTable(tableName);
         if (null == table) {
@@ -262,7 +271,7 @@ public class DataAction {
 
     public void delete(Matcher matcherDelete) {
         String tableName = MatherUtil.getTableName(matcherDelete);
-        String whereStr = matcherDelete.group(2);
+        String whereStr = MatherUtil.getWhereStrDelete(matcherDelete);
         Table table = Table.getTable(tableName);
         if (null == table) {
             PrintUtil.printTableNotFound(tableName);

@@ -12,7 +12,10 @@ import java.util.regex.Matcher;
 import util.PatternModelStr;
 
 /**
- * 匹配各个操作
+ * 数据库程序的入口，登录及用户输入操作的匹配.
+ *
+ * @author 任耀
+ * @date 2019年9月15日
  */
 public class Operations {
     private DataAction dataAction = new DataAction();
@@ -23,7 +26,6 @@ public class Operations {
      * 程序的入口.
      */
     public void dbms() {
-        //User user = new bean.User("user1", "abc");
         User user = null;
         try {
             user = userAction.login();
@@ -31,8 +33,6 @@ public class Operations {
             e.printStackTrace();
             return;
         }
-        //bean.User.grant(user.getName(), bean.User.READ_ONLY);
-        //user.grant(bean.User.READ_ONLY);
 
         // 进入默认的表中
         user.intoDefaultTable();
@@ -57,14 +57,14 @@ public class Operations {
     }
 
     /**
-     * 挨个匹配常见命令，因为要判断用户的权限，而且应该保留操作日志.
+     * 匹配命令，需要传入user：因为要判断用户的权限，而且应该保留操作日志.
      *
      * @param user 用户信息
      * @param cmd  用户输入的命令。
      */
     private void matchCommend(User user, String cmd) {
         // 因为存在嵌套子句，所以每一种可能性都要进行匹配
-        // 例: update table1 set name = 'zhangsan' where select name from table where name = 'lisi';
+        // 例: UPDATE table1 SET name = '张三' WHERE SELECT name FROM table WHERE name = '李四';
         matchGrantAdmin(user, cmd);
 
         matcherRevokeAdmin(user, cmd);
@@ -86,6 +86,12 @@ public class Operations {
         matcherDeleteIndex(user, cmd);
     }
 
+    /**
+     * 匹配删除索引的命令
+     *
+     * @param user 输入指令的用户
+     * @param cmd  用户输入的指令
+     */
     private void matcherDeleteIndex(User user, String cmd) {
         Matcher matcherDeleteIndex = PatternModelStr.PATTERN_DELETE_INDEX.matcher(cmd);
         // 因为可能是嵌套子句，所以要多次匹配.
@@ -98,6 +104,11 @@ public class Operations {
         }
     }
 
+    /**
+     * 匹配 select 操作
+     *
+     * @param cmd 用户输入的指令
+     */
     private void matcherSelect(String cmd) {
         Matcher matcherSelect = PatternModelStr.PATTERN_SELECT.matcher(cmd);
         while (matcherSelect.find()) {
@@ -105,6 +116,12 @@ public class Operations {
         }
     }
 
+    /**
+     * 匹配 dropTable 操作
+     *
+     * @param user 输入指令的用户
+     * @param cmd  用户输入的指令
+     */
     private void matcherDropTable(User user, String cmd) {
         Matcher matcherDropTable = PatternModelStr.PATTERN_DROP_TABLE.matcher(cmd);
         while (matcherDropTable.find()) {
@@ -116,6 +133,12 @@ public class Operations {
         }
     }
 
+    /**
+     * 匹配update指令
+     *
+     * @param user 输入指令的用户
+     * @param cmd  用户输入的指令
+     */
     private void matcherUpdate(User user, String cmd) {
         Matcher matcherUpdate = PatternModelStr.PATTERN_UPDATE.matcher(cmd);
         while (matcherUpdate.find()) {
@@ -127,6 +150,10 @@ public class Operations {
         }
     }
 
+    /**
+     * @param user 输入指令的用户
+     * @param cmd  用户输入的指令
+     */
     private void matcherDelete(User user, String cmd) {
         Matcher matcherDelete = PatternModelStr.PATTERN_DELETE.matcher(cmd);
         while (matcherDelete.find()) {
@@ -138,6 +165,10 @@ public class Operations {
         }
     }
 
+    /**
+     * @param user 输入指令的用户
+     * @param cmd  用户输入的指令
+     */
     private void matcherAlterTable_add(User user, String cmd) {
         Matcher matcherAlterTable_add = PatternModelStr.PATTERN_ALTER_TABLE_ADD.matcher(cmd);
         while (matcherAlterTable_add.find()) {
@@ -149,6 +180,10 @@ public class Operations {
         }
     }
 
+    /**
+     * @param user 输入指令的用户
+     * @param cmd  用户输入的指令
+     */
     private void matcherCreateTable(User user, String cmd) {
         Matcher matcherCreateTable = PatternModelStr.PATTERN_CREATE_TABLE.matcher(cmd);
         while (matcherCreateTable.find()) {
@@ -160,6 +195,10 @@ public class Operations {
         }
     }
 
+    /**
+     * @param user 输入指令的用户
+     * @param cmd  用户输入的指令
+     */
     private void matcherInsert(User user, String cmd) {
         Matcher matcherInsert = PatternModelStr.PATTERN_INSERT.matcher(cmd);
         while (matcherInsert.find()) {
@@ -171,6 +210,10 @@ public class Operations {
         }
     }
 
+    /**
+     * @param user 输入指令的用户
+     * @param cmd  用户输入的指令
+     */
     private void matcherRevokeAdmin(User user, String cmd) {
         Matcher matcherRevokeAdmin = PatternModelStr.PATTERN_REVOKE_ADMIN.matcher(cmd);
         while (matcherRevokeAdmin.find()) {
@@ -189,6 +232,10 @@ public class Operations {
         }
     }
 
+    /**
+     * @param user 输入指令的用户
+     * @param cmd  用户输入的指令
+     */
     private void matchGrantAdmin(User user, String cmd) {
         Matcher matcherGrantAdmin = PatternModelStr.PATTERN_GRANT_ADMIN.matcher(cmd);
         while (matcherGrantAdmin.find()) {
