@@ -143,8 +143,8 @@ public enum Relationship {
         String dataValue1 = data1.get(tableName1+"."+fieldName1);
         String dataValue2 = data2.get(tableName2+"."+fieldName2);
 
-        if (null == dataValue1 || "[NULL]".equals(dataValue1)
-                || null == dataValue2 || "[NULL]".equals(dataValue2)) {
+        if (null == dataValue1 || Table.NULL_DB.equals(dataValue1)
+                || null == dataValue2 || Table.NULL_DB.equals(dataValue2)) {
             return false;
         }
 

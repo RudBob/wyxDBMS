@@ -1,6 +1,6 @@
 package main;
 
-import action.DataAction;
+import action.TableDataAction;
 import action.TableAction;
 import action.TableIndexAction;
 import action.UserAction;
@@ -19,7 +19,7 @@ import util.PatternModelStr;
  * @date 2019年9月15日
  */
 public class Operations {
-    private DataAction dataAction = new DataAction();
+    private TableDataAction tableDataAction = new TableDataAction();
     private TableAction tableAction = new TableAction();
     private UserAction userAction = new UserAction();
     private TableIndexAction tableIndexAction = new TableIndexAction();
@@ -117,7 +117,7 @@ public class Operations {
     private void matcherSelect(String cmd) {
         Matcher matcherSelect = PatternModelStr.PATTERN_SELECT.matcher(cmd);
         while (matcherSelect.find()) {
-            dataAction.select(matcherSelect);
+            tableDataAction.select(matcherSelect);
         }
     }
 
@@ -151,7 +151,7 @@ public class Operations {
                 System.out.println("用户" + user.getName() + "权限不够，无法完成此操作！");
                 break;
             }
-            dataAction.update(matcherUpdate);
+            tableDataAction.update(matcherUpdate);
         }
     }
 
@@ -166,7 +166,7 @@ public class Operations {
                 System.out.println("用户" + user.getName() + "权限不够，无法完成此操作！");
                 break;
             }
-            dataAction.delete(matcherDelete);
+            tableDataAction.delete(matcherDelete);
         }
     }
 
@@ -212,7 +212,7 @@ public class Operations {
                 System.out.println("用户" + user.getName() + "权限不够，无法完成此操作！");
                 break;
             }
-            dataAction.insert(matcherInsert);
+            tableDataAction.insert(matcherInsert);
         }
     }
 
