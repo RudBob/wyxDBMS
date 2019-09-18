@@ -18,16 +18,24 @@ import java.util.regex.Matcher;
 public class TableAction {
     /**
      * 创建一张表
-     * @param matcherCreateTable
+     *
+     * @param matcherCreateTable 匹配过CreateTable的模式
      */
     public static void createTable(Matcher matcherCreateTable) {
+        // 从模式中取出 tableName
         String tableName = MatherUtil.getTableName(matcherCreateTable);
-        String propertys = matcherCreateTable.group(2);
-        Map<String, Field> fieldMap = StringUtil.parseCreateTable(propertys);
+        // 从模式中取出表的各个属性
+        String properties = matcherCreateTable.group(2);
+        Map<String, Field> fieldMap = StringUtil.parseCreateTable(properties);
+        // 创建表，并打印创建结果
         System.out.println(Table.createTable(tableName, fieldMap));
     }
 
-    // alter table
+    /**
+     * alter table
+     *
+     * @param matcherAlterTable_add 匹配过AlterTable的模式
+     */
     public void alterTableAdd(Matcher matcherAlterTable_add) {
         String tableName = MatherUtil.getTableName(matcherAlterTable_add);
         String propertys = matcherAlterTable_add.group(2);
@@ -40,6 +48,7 @@ public class TableAction {
         System.out.println(table.addDict(fieldMap));
 
     }
+
     // drop table
     public void dropTable(Matcher matcherDropTable) {
         String tableName = MatherUtil.getTableName(matcherDropTable);

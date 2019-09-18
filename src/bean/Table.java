@@ -3,33 +3,61 @@ package bean;
 import java.io.*;
 import java.util.*;
 
+/**
+ * 数据库中对应的表
+ */
 public class Table {
-    private String name;//表名
-    private File folder;//表所在的文件夹
-    private File dictFile;//数据字典
-    private LinkedHashSet<File> dataFileSet;
-    private File indexFile;//索引文件
-    private Map<String, Field> fieldMap;//字段映射集
-    //存放对所有字段的索引树
-    private Map<String, IndexTree> indexMap;
-    private static String userName;//用户姓名，切换或修改用户时修改
-    private static String dbName;//数据库dataBase名，切换时修改
+    /**
+     * 表名
+     */
+    private String name;
+    /**
+     * 表所在的文件夹
+     */
+    private File folder;
+    /**
+     * 数据字典
+     */
+    private TableDict tableDict;
 
-    //控制文件行数
-    private static long lineNumConfine = 10;
+    /**
+     * 表中存放的数据
+     */
+    private TableData tableData;
+    /**
+     * 表中存放的索引
+     */
+    private TableIndex tableIndex;
+    /**
+     * 用户姓名，切换或修改用户时修改
+     */
+    private static String userName;
+    /**
+     * 数据库dataBase名，切换时修改
+     */
+    private static String dbName;
+
+    /**
+     * 控制文件行数
+     */
+    private static final long LINE_NUM_CONFINE = 10;
+
+    public static final String NULL_DB = "[NULL]";
+    public static final String LINE_NUM = "[lineNum]";
+    public static final String DATA_FILE_SUFFIX = ".data";
+    public static final String DATA_FILE_PREFIX = "/data";
+
 
     /**
      * 只能静态创建，所以构造函数私有
      */
     private Table(String name) {
         this.name = name;
-        this.fieldMap = new LinkedHashMap();
         this.folder = new File("dir" + "/" + userName + "/" + dbName + "/" + name);
-        this.dictFile = new File(folder, name + ".dict");
-        this.dataFileSet = new LinkedHashSet<>();
-        //this.dataFile = new File(folder + "/data", 1 + ".data");
-        this.indexFile = new File(folder, this.name + ".index");
-        this.indexMap = new HashMap<>();
+        tableDict = new TableDict(folder, name);
+
+        tableData = new TableData(folder, name);
+        tableIndex = new TableIndex(folder, name);
     }
 
 
@@ -39,7 +67,7 @@ public class Table {
      * @param userName 用户名
      * @param dbName   数据库名
      */
-    public static void init(String userName, String dbName) {
+    static void init(String userName, String dbName) {
         Table.userName = userName;
         Table.dbName = dbName;
     }
@@ -54,13 +82,14 @@ public class Table {
         if (existTable(name)) {
             return "创建表失败，因为已经存在表:" + name;
         }
+
         Table table = new Table(name);
-
-
-        table.dictFile.getParentFile().mkdirs();//创建真实目录
-
-        table.addDict(fields);
-        return "success";
+        //创建真实目录
+        if (table.getDictFile().getParentFile().mkdirs()) {
+            table.getTableDict().addDict(fields, table.getFieldMap());
+            return "success";
+        }
+        return "创建表" + name + "失败：未知错误404";
     }
 
 
@@ -75,65 +104,89 @@ public class Table {
             return null;
         }
         Table table = new Table(name);
-        try (
-                FileReader fr = new FileReader(table.dictFile);
-                BufferedReader br = new BufferedReader(fr)
-        ) {
-
-            String line = null;
-            //读到末尾是NULL
-            while (null != (line = br.readLine())) {
-                String[] fieldValues = line.split(" ");//用空格产拆分字段
-                Field field = new Field();
-                field.setName(fieldValues[0]);
-                field.setType(fieldValues[1]);
-                //如果长度为3说明此字段是主键
-                if ("*".equals(fieldValues[2])) {
-                    field.setPrimaryKey(true);
-                } else {
-                    field.setPrimaryKey(false);
-                }
-                //将字段的名字作为key
-                table.fieldMap.put(fieldValues[0], field);
-            }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        File[] dataFiles = new File(table.folder, "data").listFiles();
-        if (null != dataFiles && 0 != dataFiles.length) {
-            for (int i = 1; i <= dataFiles.length; i++) {
-                File dataFile = new File(table.folder + "/data", i + ".data");
-                table.dataFileSet.add(dataFile);
-            }
-        }
-
-        if (table.indexFile.exists()) {
-            table.readIndex();
-        } /*else {
-            table.buildIndex();
-            //table.writeIndex();
-        }*/
-
+        // 读取表结构
+        table.readTableDictFile();
+        // 读取表内数据
+        table.readTableData();
+        // 读取索引对象
+        table.readTableIdx();
         return table;
     }
 
-    public Map<String, Field> getFieldMap() {
-        return fieldMap;
+    /**
+     * 通过表名来读取表结构
+     */
+    private void readTableDictFile() {
+        try (
+                BufferedReader br = new BufferedReader(new FileReader(tableDict.getDictFile()))
+        ) {
+            String line;
+            // 读到末尾是NULL
+            while (null != (line = br.readLine())) {
+                putFieldIntoTable(line);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
+    /**
+     * 通过表名，读取表索引
+     */
+    private void readTableIdx() {
+        // 如果表索引存在才读取
+        tableIndex.readTableIdx();
+    }
 
-    private static void deleteFolder(File file) {
-        if (file.isFile()) {//判断是否是文件
-            file.delete();//删除文件
-        } else if (file.isDirectory()) {//否则如果它是一个目录
-            File[] files = file.listFiles();//声明目录下所有的文件 files[];
-            for (int i = 0; i < files.length; i++) {//遍历目录下所有的文件
-                deleteFolder(files[i]);//把每个文件用这个方法进行迭代
+    /**
+     * 通过表名，读取表中数据
+     */
+    private void readTableData() {
+        // 读取多个数据文件，并将其加入到结果集中.
+        File[] dataFiles = new File(getFolder(), "data").listFiles();
+        if (null != dataFiles && 0 != dataFiles.length) {
+            for (int i = 1; i <= dataFiles.length; i++) {
+                getDataFileSet().add(new File(folder + "/data", i + ".data"));
             }
-            file.delete();//删除文件夹
         }
+    }
+
+    /**
+     * 将文件中的属性放入到Table中
+     *
+     * @param line 文件中读取的数据
+     */
+    private void putFieldIntoTable(String line) {
+        // 用空格产拆分字段
+        String[] fieldValues = line.split(" ");
+        Field field = new Field();
+        field.setName(fieldValues[0]).setType(fieldValues[1]);
+        // 如果长度为3说明此字段是主键
+        if (fieldValues.length >= 3 && "*".equals(fieldValues[2])) {
+            field.setPrimaryKey(true);
+        } else {
+            field.setPrimaryKey(false);
+        }
+        //将字段的名字作为key
+        getFieldMap().put(field.getName(), field);
+    }
+
+    /**
+     * 删除一个文件
+     *
+     * @param file
+     */
+    private static void deleteFolder(File file) {
+        //判断是否是文件
+        if (file.isDirectory()) {
+            //否则如果它是一个目录,递归删除目录下所有目录和文件
+            File[] files = file.listFiles();
+            for (File value : files) {
+                deleteFolder(value);
+            }
+        }
+        // 删除自身
+        file.delete();
     }
 
 
@@ -158,75 +211,6 @@ public class Table {
         return folder.exists();
     }
 
-    /**
-     * 在字典文件中写入创建的字段信息,然后将新增的字段map追加到this.fieldMap
-     *
-     * @param fields 字段列表，其中map的name为列名，type为数据类型，primaryKey为是否作为主键
-     * @return
-     */
-    public String addDict(Map<String, Field> fields) {
-        Set<String> keys = fields.keySet();
-        for (String key : keys) {
-            if (fieldMap.containsKey(key)) {
-                return "错误：存在重复添加的字段:" + key;
-            }
-        }
-        writeDict(fields, true);
-
-        fieldMap.putAll(fields);
-
-        return "success";
-    }
-
-    /**
-     * 在数据文件没有此字段的数据的前提下，可以删除此字段
-     *
-     * @param fieldName 字段名
-     * @return
-     */
-    public String deleteDict(String fieldName) {
-        if (!fieldMap.containsKey(fieldName)) {
-            return "错误：不存字段：" + fieldName;
-        }
-        fieldMap.remove(fieldName);
-       /* //如果删除了最后一条字段，则删除整个表文件
-        if (0 == fieldMap.size()) {
-            dropTable(this.name);
-        } else {
-        }*/
-        writeDict(fieldMap, false);
-
-        return "success";
-    }
-
-    /**
-     * 提供一组字段写入文件
-     *
-     * @param fields 字段映射集
-     * @param append 是否在文件结尾追加
-     */
-    private void writeDict(Map<String, Field> fields, boolean append) {
-        try (
-                FileWriter fw = new FileWriter(dictFile, append);
-                PrintWriter pw = new PrintWriter(fw)
-        ) {
-            //for (Map.Entry<String, bean.Field> fieldEntry : fields.entrySet()) {
-            for (Field field : fields.values()) {
-                String name = field.getName();
-                String type = field.getType();
-                //如果是主键字段后面加*
-                if (field.isPrimaryKey()) {
-                    pw.println(name + " " + type + " " + "*");
-                } else {//非主键^
-                    pw.println(name + " " + type + " " + "^");
-                }
-            }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
     /**
      * 对空位填充fillStr,填充后的字段按照数据字段顺序排序
@@ -239,7 +223,7 @@ public class Table {
         //fillData是真正写入文件的集合，空位补fillStr;
         Map<String, String> fillData = new LinkedHashMap<>();
         //遍历数据字典
-        for (Map.Entry<String, Field> fieldEntry : fieldMap.entrySet()) {
+        for (Map.Entry<String, Field> fieldEntry : getFieldMap().entrySet()) {
             String fieldKey = fieldEntry.getKey();
             if (null == data.get(fieldKey)) {
                 fillData.put(fieldKey, fillStr);
@@ -258,16 +242,14 @@ public class Table {
      */
     private boolean checkType(Map<String, String> data) {
         //如果长度不一致，返回false
-        if (data.size() != fieldMap.size()) {
+        if (data.size() != getFieldMap().size()) {
             return false;
         }
 
         //遍历data.value和field.type,逐个对比类型
-        //Iterator<String> dataIter = data.values().iterator();
-        Iterator<Field> fieldIter = fieldMap.values().iterator();
+        Iterator<Field> fieldIter = getFieldMap().values().iterator();
 
         while (fieldIter.hasNext()) {
-            //String dataValue = dataIter.next();
             Field field = fieldIter.next();
             String dataValue = data.get(field.getName());
             //如果是[NULL]则跳过类型检查
@@ -306,7 +288,7 @@ public class Table {
         File lastFile = null;
         int lineNum = 0;
         int fileNum = 0;
-        for (File file : dataFileSet) {
+        for (File file : getDataFileSet()) {
             fileNum++;
             lastFile = file;
             lineNum = fileLineNum(lastFile);
@@ -314,16 +296,16 @@ public class Table {
         //如果没有一个文件，新建1.data
         if (null == lastFile || 0 == fileNum) {
             lastFile = new File(folder + "/data", 1 + ".data");
-            dataFileSet.add(lastFile);
+            getDataFileSet().add(lastFile);
             lineNum = 0;
-        } else if (lineNumConfine <= fileLineNum(lastFile)) {
+        } else if (LINE_NUM_CONFINE <= fileLineNum(lastFile)) {
             //如果最后一个文件大于行数限制，新建数据文件
             lastFile = new File(folder + "/data", fileNum + 1 + ".data");
-            dataFileSet.add(lastFile);
+            getDataFileSet().add(lastFile);
             lineNum = 0;
         }
         //添加索引
-        for (Map.Entry<String, Field> fieldEntry : fieldMap.entrySet()) {
+        for (Map.Entry<String, Field> fieldEntry : getFieldMap().entrySet()) {
             String dataName = fieldEntry.getKey();
             String dataValue = srcData.get(dataName);
             //如果发现此数据为空，不添加到索引树中
@@ -332,15 +314,15 @@ public class Table {
             }
             String dataType = fieldEntry.getValue().getType();
 
-            IndexTree indexTree = indexMap.get(dataName);
+            IndexTree indexTree = getIndexMap().get(dataName);
             if (null == indexTree) {
-                indexMap.put(dataName, new IndexTree());
-                indexTree = indexMap.get(dataName);
+                getIndexMap().put(dataName, new IndexTree());
+                indexTree = getIndexMap().get(dataName);
             }
             IndexKey indexKey = new IndexKey(dataValue, dataType);
             indexTree.putIndex(indexKey, lastFile.getAbsolutePath(), lineNum);
         }
-        writeIndex();
+        tableIndex.writeIndex();
         return insertData(lastFile, srcData);
     }
 
@@ -351,12 +333,12 @@ public class Table {
      * @return
      */
     private String insertData(File file, Map<String, String> srcData) {
-        if (srcData.size() > fieldMap.size() || 0 == srcData.size()) {
+        if (srcData.size() > getFieldMap().size() || 0 == srcData.size()) {
             return "错误：插入数据失败，请检查语法";
         }
 
         //遍历数据字典,查看主键是否为空
-        for (Map.Entry<String, Field> fieldEntry : fieldMap.entrySet()) {
+        for (Map.Entry<String, Field> fieldEntry : getFieldMap().entrySet()) {
             String fieldKey = fieldEntry.getKey();
             Field field = fieldEntry.getValue();
             //如果此字段是主键,不可以为null
@@ -387,7 +369,7 @@ public class Table {
         }
 
         buildIndex();
-        writeIndex();
+        tableIndex.writeIndex();
         return "success";
     }
 
@@ -401,8 +383,6 @@ public class Table {
             while (null != br.readLine()) {
                 num++;
             }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -434,8 +414,6 @@ public class Table {
                 }
                 dataMapList.add(dataMap);
             }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -470,8 +448,6 @@ public class Table {
                 dataMapList.add(dataMap);
                 lineNum++;
             }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -487,10 +463,8 @@ public class Table {
     private List<Map<String, String>> read() {
         //索引文件***
         List<Map<String, String>> datas = new ArrayList<>();
-        //Set<File> fileSet = findFileSet(singleFilters);
-        for (File file : dataFileSet) {
+        for (File file : getDataFileSet()) {
             datas.addAll(readDatas(file));
-            //datas.addAll(readDatas(file));
         }
         return datas;
     }
@@ -509,7 +483,6 @@ public class Table {
             Set<File> fileSet = findFileSet(singleFilters);
             for (File file : fileSet) {
                 datas.addAll(readFilter(file, singleFilters));
-                //datas.addAll(readDatas(file));
             }
         } else {
             datas = read();
@@ -567,7 +540,7 @@ public class Table {
             deleteData(file, singleFilters);
         }
         buildIndex();
-        writeIndex();
+        tableIndex.writeIndex();
     }
 
     /**
@@ -580,7 +553,6 @@ public class Table {
         //读取数据文件
         List<Map<String, String>> srcDatas = readDatas(file);
         List<Map<String, String>> filtDatas = new ArrayList<>(srcDatas);
-        //Collections.copy(filtDatas, srcDatas);
         for (SingleFilter singleFilter : singleFilters) {
             filtDatas = singleFilter.singleFiltData(filtDatas);
         }
@@ -600,7 +572,7 @@ public class Table {
             updateData(file, updateDatas, singleFilters);
         }
         buildIndex();
-        writeIndex();
+        tableIndex.writeIndex();
     }
 
     /**
@@ -612,9 +584,7 @@ public class Table {
      */
     private void updateData(File file, Map<String, String> updateDatas, List<SingleFilter> singleFilters) {
         //读取数据文件
-        List<Map<String, String>> srcDatas = readDatas(file);
-        List<Map<String, String>> filtDatas = new ArrayList<>(srcDatas);
-        //Collections.copy(filtDatas, srcDatas);
+        List<Map<String, String>> filtDatas = new ArrayList<>(readDatas(file));
         //循环过滤
         for (SingleFilter singleFilter : singleFilters) {
             filtDatas = singleFilter.singleFiltData(filtDatas);
@@ -625,59 +595,15 @@ public class Table {
                 filtData.put(setData.getKey(), setData.getValue());
             }
         }
-//        srcDatas.removeAll(filtDatas);
-        writeDatas(file, srcDatas);
+        writeDatas(file, readDatas(file));
     }
 
-    /**
-     * 将索引对象从索引文件读取
-     */
-    private void readIndex() {
-        if (!indexFile.exists()) {
-            return;
-        }
-        try (
-                FileInputStream fis = new FileInputStream(indexFile);
-                ObjectInputStream ois = new ObjectInputStream(fis)
-        ) {
-            indexMap = (Map<String, IndexTree>) ois.readObject();
-        } catch (ClassNotFoundException | IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * 将索引对象写入索引文件
-     */
-    private void writeIndex() {
-        try (
-                FileOutputStream fos = new FileOutputStream(indexFile);
-                ObjectOutputStream oos = new ObjectOutputStream(fos)
-        ) {
-            oos.writeObject(indexMap);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * 删除建立的索引
-     */
-    public String deleteIndex() {
-        if (indexFile.exists()) {
-            indexFile.delete();
-            return "success";
-        }
-        return "失败";
-    }
 
     /**
      * 为每个属性建立索引树，如果此属性值为[NULL]索引树将排除此条字段
      */
     private void buildIndex() {
-        indexMap = new HashMap<>();
+        setIndexMap(new HashMap<>());
         File[] dataFiles = new File(folder, "data").listFiles();
         //每个文件
         for (File dataFile : dataFiles) {
@@ -685,21 +611,21 @@ public class Table {
             //每个元组
             for (Map<String, String> data : datas) {
                 //每个数据字段
-                for (Map.Entry<String, Field> fieldEntry : fieldMap.entrySet()) {
+                for (Map.Entry<String, Field> fieldEntry : getFieldMap().entrySet()) {
                     String dataName = fieldEntry.getKey();
                     String dataValue = data.get(dataName);
                     //如果发现此数据为空，不添加到索引树中
-                    if ("[NULL]".equals(dataValue)) {
+                    if (NULL_DB.equals(dataValue)) {
                         continue;
                     }
                     String dataType = fieldEntry.getValue().getType();
-                    int lineNum = Integer.valueOf(data.get("[lineNum]"));
+                    int lineNum = Integer.valueOf(data.get(LINE_NUM));
 
 
-                    IndexTree indexTree = indexMap.get(dataName);
+                    IndexTree indexTree = getIndexMap().get(dataName);
                     if (null == indexTree) {
-                        indexMap.put(dataName, new IndexTree());
-                        indexTree = indexMap.get(dataName);
+                        getIndexMap().put(dataName, new IndexTree());
+                        indexTree = getIndexMap().get(dataName);
                     }
                     IndexKey indexKey = new IndexKey(dataValue, dataType);
                     indexTree.putIndex(indexKey, dataFile.getAbsolutePath(), lineNum);
@@ -710,8 +636,8 @@ public class Table {
         //重新填充dataFileSet
         if (0 != dataFiles.length) {
             for (int i = 1; i <= dataFiles.length; i++) {
-                File dataFile = new File(folder + "/data", i + ".data");
-                dataFileSet.add(dataFile);
+                File dataFile = new File(folder + DATA_FILE_PREFIX, i + DATA_FILE_SUFFIX);
+                getDataFileSet().add(dataFile);
             }
         }
     }
@@ -726,10 +652,106 @@ public class Table {
             String condition = singleFilter.getCondition();
 
             IndexKey indexKey = new IndexKey(condition, fieldType);
-            IndexTree indexTree = indexMap.get(fieldName);
+            IndexTree indexTree = getIndexMap().get(fieldName);
             fileSet.addAll(indexTree.getFiles(relationship, indexKey));
         }
         return fileSet;
+    }
+
+    public String deleteIndex() {
+        return tableIndex.deleteIndex();
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public File getFolder() {
+        return folder;
+    }
+
+    public void setFolder(File folder) {
+        this.folder = folder;
+    }
+
+    public TableData getTableData() {
+        return tableData;
+    }
+
+    public void setTableData(TableData tableData) {
+        this.tableData = tableData;
+    }
+
+    public TableIndex getTableIndex() {
+        return tableIndex;
+    }
+
+    public void setTableIndex(TableIndex tableIndex) {
+        this.tableIndex = tableIndex;
+    }
+
+    public static String getUserName() {
+        return userName;
+    }
+
+    public static void setUserName(String userName) {
+        Table.userName = userName;
+    }
+
+    public static String getDbName() {
+        return dbName;
+    }
+
+    public static void setDbName(String dbName) {
+        Table.dbName = dbName;
+    }
+
+    public File getIndexFile() {
+        return tableIndex.getIndexFile();
+    }
+
+    public void setIndexFile(File indexFile) {
+        tableIndex.setIndexFile(indexFile);
+    }
+
+    public Map<String, IndexTree> getIndexMap() {
+        return tableIndex.getIndexMap();
+    }
+
+    public void setIndexMap(Map<String, IndexTree> indexMap) {
+        tableIndex.setIndexMap(indexMap);
+    }
+
+    public LinkedHashSet<File> getDataFileSet() {
+        return tableData.getDataFileSet();
+    }
+
+    public void setDataFileSet(LinkedHashSet<File> dataFileSet) {
+        tableData.setDataFileSet(dataFileSet);
+    }
+
+    public Map<String, Field> getFieldMap() {
+        return tableData.getFieldMap();
+    }
+
+    public void setFieldMap(Map<String, Field> fieldMap) {
+        tableData.setFieldMap(fieldMap);
+    }
+
+    public File getDictFile() {
+        return tableDict.getDictFile();
+    }
+
+    public void setDictFile(File dictFile) {
+        tableDict.setDictFile(dictFile);
+    }
+
+    private TableDict getTableDict() {
+        return this.tableDict;
     }
 
 }

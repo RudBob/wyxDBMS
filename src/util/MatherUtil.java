@@ -14,7 +14,7 @@ public class MatherUtil {
         return matcherAlterTable_add.group(1);
     }
 
-    public static String getWhereStr(Matcher matcherSelect) {
+    public static String getWhereStrNotDelete(Matcher matcherSelect) {
         return matcherSelect.group(3);
     }
 
@@ -24,5 +24,9 @@ public class MatherUtil {
 
     public static String getSetStr(Matcher matcherUpdate) {
         return matcherUpdate.group(2);
+    }
+
+    public static String getGroupByIdx(Matcher matcherSelect, int i) {
+        return matcherSelect.group(i);
     }
 }

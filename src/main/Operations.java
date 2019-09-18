@@ -2,6 +2,7 @@ package main;
 
 import action.DataAction;
 import action.TableAction;
+import action.TableIndexAction;
 import action.UserAction;
 import bean.*;
 import exception.LoginFailException;
@@ -21,6 +22,7 @@ public class Operations {
     private DataAction dataAction = new DataAction();
     private TableAction tableAction = new TableAction();
     private UserAction userAction = new UserAction();
+    private TableIndexAction tableIndexAction = new TableIndexAction();
 
     /**
      * 程序的入口.
@@ -42,6 +44,8 @@ public class Operations {
 
     }
 
+    private static final String EXIT = "exit";
+
     /**
      * 处理用户输入的命令。
      *
@@ -50,7 +54,7 @@ public class Operations {
     private void dealCommend(User user) {
         Scanner sc = new Scanner(System.in);
         String cmd;
-        while (!"exit".equals(cmd = sc.nextLine())) {
+        while (!EXIT.equals(cmd = sc.nextLine())) {
             // 匹配各个命令.
             matchCommend(user, cmd);
         }
@@ -100,9 +104,10 @@ public class Operations {
                 System.out.println("用户" + user.getName() + "权限不够，无法完成此操作！");
                 break;
             }
-            dataAction.deleteIndex(matcherDeleteIndex);
+            tableIndexAction.deleteIndex(matcherDeleteIndex);
         }
     }
+
 
     /**
      * 匹配 select 操作
@@ -188,6 +193,7 @@ public class Operations {
         Matcher matcherCreateTable = PatternModelStr.PATTERN_CREATE_TABLE.matcher(cmd);
         while (matcherCreateTable.find()) {
             if (user.getLevel() != User.ADMIN) {
+                // 用户权限不足,提醒用户.
                 System.out.println("用户" + user.getName() + "权限不够，无法完成此操作！");
                 break;
             }
