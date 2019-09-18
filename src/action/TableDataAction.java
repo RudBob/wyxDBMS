@@ -11,13 +11,13 @@ import java.util.regex.Matcher;
 
 
 /**
- * @ClassName DataAction
+ * @ClassName TableDataAction
  * @Description 对表中数据进行操作的类
  * @Author 任耀
  * @Date 2019/9/14 21:24
  * @Version 1.0
  */
-public class DataAction {
+public class TableDataAction {
     /**
      * 用户的select操作
      *
