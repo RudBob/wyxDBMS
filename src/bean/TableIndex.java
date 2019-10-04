@@ -3,6 +3,9 @@ package bean;
 import java.io.*;
 import java.util.*;
 
+/**
+ *
+ */
 public class TableIndex {
     /**
      * 索引文件

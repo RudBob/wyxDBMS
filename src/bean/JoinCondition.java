@@ -2,6 +2,9 @@ package bean;
 
 import java.util.List;
 
+/**
+ * 条件链接
+ */
 public class JoinCondition {
     private String tableName1;
     private String tableName2;
