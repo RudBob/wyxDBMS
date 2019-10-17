@@ -24,38 +24,61 @@ public class TableDataAction {
      * @param matcherSelect 已经匹配上select子句的模式
      */
     public void select(Matcher matcherSelect) {
-        // 将读到的所有数据放到tableDatasMap中
-        Map<String, List<Map<String, String>>> tableDatasMap = new LinkedHashMap<>();
+        List<String> tableNames = StringUtil.parseFrom(MatherUtil.getGroupByIdx(matcherSelect, 2));
 
-        // 将投影放在 Map<String,List<String>> projectionMap中
-        Map<String, List<String>> projectionMap = new LinkedHashMap<>();
-
-        //将 tableName 和 table.fieldMap 放入
-        Map<String, Map<String, Field>> tableFiledMap = new HashMap<>(16);
-
-        // 通过用户输入的命令，得到命令中出现的table对应的文件的对应的数据
-        if (getTablesDatas(matcherSelect, tableDatasMap, projectionMap, tableFiledMap)) {
-            // 如果有表不存在，那么return(已经提示过用户了)
+        if (tableNotExist(tableNames)) {
             return;
         }
+        //将 tableName 和 table.fieldMap 放入
+        Map<String, Map<String, Field>> tableFiledMap = getTableFileMap(tableNames);
 
+        Map<String, List<String>> projectionMap = getProjection(matcherSelect);
+        // 通过用户输入的命令，得到命令中出现的table对应的文件的对应的数据
         // 解析连接条件，并创建连接对象 join
         List<Map<String, String>> joinConditionMapList = StringUtil.parseWhereJoin(
                 MatherUtil.getWhereStrNotDelete(matcherSelect), tableFiledMap);
-        List<JoinCondition> joinConditionList = new LinkedList<>();
+        List<JoinCondition> joinConditionList = getJoinConditions(tableFiledMap, projectionMap, joinConditionMapList);
 
+        // 将需要显示的字段名按 table.filed 的型式存入 dataNameList
+
+        List<Map<String, String>> resultData = Join.joinData(getTablesDatas(matcherSelect), joinConditionList, projectionMap);
+
+        List<String> dataNameList = projectionToDataName(projectionMap);
+        showResult(resultData, dataNameList);
+
+    }
+
+    private List<JoinCondition> getJoinConditions(Map<String, Map<String, Field>> tableFiledMap, Map<String, List<String>> projectionMap, List<Map<String, String>> joinConditionMapList) {
+        List<JoinCondition> joinConditionList = new LinkedList<>();
         // 通过连接条件将数据链接起来.
         for (Map<String, String> joinMap : joinConditionMapList) {
             joinTableWithField(projectionMap, tableFiledMap, joinConditionList, joinMap);
         }
+        return joinConditionList;
+    }
 
-        // 将需要显示的字段名按 table.filed 的型式存入 dataNameList
-        List<String> dataNameList = projectionToDataName(projectionMap);
-        //
-        List<Map<String, String>> resultData = Join.joinData(tableDatasMap, joinConditionList, projectionMap);
+    private Map<String, Map<String, Field>> getTableFileMap(List<String> tableNames) {
+        Map<String, Map<String, Field>> fieldMaps = new HashMap<>(16);
+        for (String tableName : tableNames) {
+            Table table = Table.getTable(tableName);
+            fieldMaps.put(table.getName(), table.getFieldMap());
+        }
+        return fieldMaps;
+    }
 
-        showResult(resultData, dataNameList);
+    private Map<String, List<String>> getProjection(Matcher matcherSelect) {
+        Map<String, List<String>> projectionMap = new LinkedHashMap<>();
+        List<String> tableNames = StringUtil.parseFrom(MatherUtil.getGroupByIdx(matcherSelect, 2));
+        for (String tableName : tableNames) {
+            Table table = Table.getTable(tableName);
+            //解析最终投影
+            List<String> projections = ProjectionUtil.parseProjection(
+                    MatherUtil.getGroupByIdx(matcherSelect, 1), tableName, table.getFieldMap());
+            // 将表名与投影相关联
+            projectionMap.put(tableName, projections);
+        }
 
+        return projectionMap;
     }
 
     /**
@@ -77,48 +100,38 @@ public class TableDataAction {
         return dataNameList;
     }
 
-    /**
-     * 通过用户输入的命令，得到文件中对应的数据
-     *
-     * @param matcherSelect 匹配过select子句的模式
-     * @param tableDatasMap 将读到的所有数据放到tableDatasMap中
-     * @param projectionMap 将投影放在 Map<String, List<String>> projectionMap中
-     * @param fieldMaps     将 tableName 和 table.fieldMap 放入
-     * @return
-     */
-    private boolean getTablesDatas(Matcher matcherSelect, Map<String, List<Map<String, String>>> tableDatasMap,
-                                   Map<String, List<String>> projectionMap, Map<String, Map<String, Field>> fieldMaps) {
-        // 得到限制条件: where 子句和对应表明tableName
-        String whereStr = MatherUtil.getWhereStrNotDelete(matcherSelect);
-        List<String> tableNames = StringUtil.parseFrom(MatherUtil.getGroupByIdx(matcherSelect, 2));
-
-        // 遍历表名称
+    private boolean tableNotExist(List<String> tableNames) {
         for (String tableName : tableNames) {
             Table table = Table.getTable(tableName);
             if (null == table) {
                 PrintUtil.printTableNotFound(tableName);
                 return true;
             }
-
-            Map<String, Field> fieldMap = table.getFieldMap();
-            fieldMaps.put(table.getName(), fieldMap);
-
-
-            //解析最终投影
-            List<String> projections = ProjectionUtil.parseProjection(
-                    MatherUtil.getGroupByIdx(matcherSelect, 1), tableName, fieldMap);
-            // 将表名与投影相关联
-            projectionMap.put(tableName, projections);
-
-
-            // 解析多表选择,得到过滤器
-            List<SingleFilter> singleFilters = getSingleFilterByWhereWithTable(fieldMap, whereStr, tableName);
-            //读取数据并进行选择操作
-            List<Map<String, String>> datas = associatedTableName(tableName, table.read(singleFilters));
-
-            tableDatasMap.put(tableName, datas);
         }
         return false;
+    }
+
+    /**
+     * 通过用户输入的命令，得到文件中对应的数据
+     *
+     * @param matcherSelect 匹配过select子句的模式
+     * @return
+     */
+    private Map<String, List<Map<String, String>>> getTablesDatas(Matcher matcherSelect) {
+        Map<String, List<Map<String, String>>> tableDatasMap = new LinkedHashMap<>();
+        // 得到限制条件: where 子句和对应表明tableName
+        String whereStr = MatherUtil.getWhereStrNotDelete(matcherSelect);
+        List<String> tableNames = StringUtil.parseFrom(MatherUtil.getGroupByIdx(matcherSelect, 2));
+        // 遍历表名称
+        for (String tableName : tableNames) {
+            Table table = Table.getTable(tableName);
+            // 解析多表选择,得到过滤器
+            List<SingleFilter> singleFilters = getSingleFilterByWhereWithTable(table.getFieldMap(), whereStr, tableName);
+            //读取数据并进行选择操作
+            List<Map<String, String>> datas = associatedTableName(tableName, table.read(singleFilters));
+            tableDatasMap.put(tableName, datas);
+        }
+        return tableDatasMap;
     }
 
     private List<SingleFilter> getSingleFilterByWhereWithTable(Map<String, Field> fieldMap, String whereStr, String tableName) {
@@ -369,7 +382,6 @@ public class TableDataAction {
         }
         table.delete(singleFilters);
     }
-
 
 
 }
