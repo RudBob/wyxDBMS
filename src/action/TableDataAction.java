@@ -179,8 +179,7 @@ public class TableDataAction {
      */
     private void joinTableWithField(Map<String, List<String>> projectionMap,
                                     Map<String, Map<String, Field>> fieldMaps,
-                                    List<JoinCondition> joinConditionList,
-                                    Map<String, String> joinMap) {
+                                    List<JoinCondition> joinConditionList, Map<String, String> joinMap) {
         String tableName1 = joinMap.get(StringUtil.TABLE_NAME1);
         String tableName2 = joinMap.get(StringUtil.TABLE_NAME2);
         String fieldName1 = joinMap.get(StringUtil.FIELD1);
